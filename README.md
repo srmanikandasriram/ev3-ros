@@ -10,3 +10,4 @@ Setup
 - Install `arm-linux-gnueabi-gcc` toolchain and use the the provided `setenv.sh` script during make
 -`source ../setenv.sh; make all`
 - Check implementation of `time.h` and `time.cpp`
+- Correlate effort value to duty_cycle_set_point

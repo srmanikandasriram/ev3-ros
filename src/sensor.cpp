@@ -19,7 +19,7 @@
 */
 
 #include <ros.h>
-#include <ev3_msgs/Range.h>
+#include <sensor_msgs/Range.h>
 #include <iostream>
 
 #define _USE_MATH_DEFINES
@@ -29,7 +29,7 @@
 ros::NodeHandle  nh;
 
 // Construct a unique name
-char name[];
+char *a[];
 sensor s;
 
 void jc_cb(const ev3_msgs::JointCommand& msg){

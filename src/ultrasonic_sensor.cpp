@@ -58,7 +58,7 @@ int main(int argc, char* argv[])
 	name = "sensor"+sensor_port;
     s = sensor(sensor_port);
 
-    if(s.as_string(s.type())!="ultrasonic")
+    if(s.as_string(s.type())!="EV3 ultrasonic")
     {
 		std::cerr << "Invalid sensor type. Must be Ultrasonic. Given sensor is of type " << s.as_string(s.type()) << std::endl;
 		return 1;
@@ -69,9 +69,10 @@ int main(int argc, char* argv[])
 	s.set_mode(mode);
 
  	sensor_msgs::Range us_msg;
+ 	us_msg.header.frame_id = "pi-alpha";
 	us_msg.radiation_type = 0;
 	us_msg.field_of_view = 5*deg2rad; // Approximating to 5deg FOV
-	us_msg.min_range = 0;
+	us_msg.min_range = 0.03;
 	us_msg.max_range = 2.55;
 
  	ros::Publisher us_pub("range", &us_msg);
@@ -88,7 +89,7 @@ int main(int argc, char* argv[])
 		current_time = ros::Time::now();
 
 		us_msg.header.stamp = current_time;
-		us_msg.range = s.value()/100.0;
+		us_msg.range = s.value()/1000.0;
 		us_pub.publish(&us_msg);
 
 		last_time = current_time;

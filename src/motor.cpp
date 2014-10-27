@@ -35,8 +35,8 @@ ros::NodeHandle  nh;
 // From LEGO Website.
 // Large Motor - Running Torque: 0.2Nm, Stalling torque: 0.4Nm
 // Medium Motor - Running Torque: 0.08Nm, Stalling torque: 0.12Nm
-int POWER_TO_NM  = 0.20;
-#define POWER_MAX 100
+float POWER_TO_NM  = 0.20;
+#define POWER_MAX 1000
 float deg2rad = M_PI/180.0;
 
 // Construct a unique name
@@ -51,11 +51,18 @@ void jc_cb(const control_msgs::GripperCommand& msg){
     }else if(cmd < -POWER_MAX){
 		cmd = -POWER_MAX;
     }
-    joint.set_pulses_per_second_setpoint(cmd);
-	cout << "received " << cmd << std::endl;
+    if(cmd!=0){
+    	joint.set_pulses_per_second_setpoint(cmd);
+    	joint.run(true);
+    }else{
+    	joint.set_pulses_per_second_setpoint(cmd);
+    	joint.run(false);
+    }
+
+	// cout << "received " << msg.max_effort << "/" << POWER_TO_NM << "=" << cmd << std::endl;
 }
 
-ros::Subscriber<control_msgs::GripperCommand> jc_sub("joint_command", jc_cb );
+ros::Subscriber<control_msgs::GripperCommand> jc_sub("jc", jc_cb );
 
 int main(int argc, char* argv[])
 {
@@ -97,7 +104,7 @@ int main(int argc, char* argv[])
  	ros::Publisher js_pub("joint_state", &js_msg);
  	nh.advertise(js_pub);
 	cout << "advertised on joint_state"<< std::endl;
-	// nh.subscribe(jc_sub);
+	nh.subscribe(jc_sub);
 	
 	ros::Time current_time, last_time;
 	current_time = ros::Time::now();

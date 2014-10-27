@@ -62,6 +62,9 @@ int main(int argc, char* argv[])
 	}
     cout << "Enough arguments present"<< endl;
     nh.initNode(argv[1]);
+
+    while(!nh.connected()) {nh.spinOnce();}
+	
 	cout << "Initialised node"<< endl;
     // TODO: Check for valid nh and raise error if otherwise
     int motor_port = atoi(argv[2]);

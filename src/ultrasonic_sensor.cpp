@@ -36,6 +36,8 @@ int main(int argc, char* argv[])
     
     nh.initNode(argv[1]);
 
+    while(!nh.connected()) {nh.spinOnce();}
+
     // TODO: Check for valid nh and raise error if otherwise
     int sensor_port = atoi(argv[2]);
     if(sensor_port<1||sensor_port>4)

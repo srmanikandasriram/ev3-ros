@@ -24,7 +24,7 @@ using namespace ev3dev;
 ros::NodeHandle  nh;
 
 float x = 0.0, y = 0.0, t = 0.0;
-float R = 0.03, L = 0.12;	// Update R and L from Parameter server
+float R, L;	// Update R and L from Parameter server
 const float deg2rad = M_PI/180.0, speed = R*deg2rad;
 motor left_motor, right_motor;
 
@@ -68,6 +68,16 @@ int main(int argc, char* argv[])
 	}
     
     nh.initNode(argv[1]);
+
+    while(!nh.connected()) {nh.spinOnce();}
+
+	if (! nh.getParam("~R", R){ 
+	     R = 0.03;
+	}
+
+	if (! nh.getParam("~L", L){ 
+	     L = 0.12;
+	}
 
     int left_motor_port = atoi(argv[2]), right_motor_port = atoi(argv[3]);
     if(left_motor_port<1||left_motor_port>4||right_motor_port<1||right_motor_port>4||left_motor_port==right_motor_port)

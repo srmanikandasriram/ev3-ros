@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2014 - S.R.Manikandasriram
  *
- * This program is distributed under The MIT License.
+ * This software is distributed under The MIT License.
 */
 
 #include "ev3dev.h"

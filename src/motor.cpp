@@ -1,21 +1,10 @@
 /*
-* Software License Agreement (BSD License)
+* Software License Agreement (MIT License)
 *
 * Copyright (c) 2014 S.R.Manikandasriram
 * All rights reserved.
 *
-* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-* FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-* COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-* INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-* BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-* LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-* LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-* ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-* POSSIBILITY OF SUCH DAMAGE.
+* This software is distributed under MIT License.
 */
 
 #include <ros.h>
@@ -59,7 +48,7 @@ void jc_cb(const control_msgs::GripperCommand& msg){
     	joint.run(false);
     }
 
-	// cout << "received " << msg.max_effort << "/" << POWER_TO_NM << "=" << cmd << std::endl;
+	// cout << "received " << msg.max_effort << "/" << POWER_TO_NM << "=" << cmd << endl;
 }
 
 ros::Subscriber<control_msgs::GripperCommand> jc_sub("jc", jc_cb );
@@ -68,23 +57,23 @@ int main(int argc, char* argv[])
 {
 	if(argc<3)
 	{
-		std::cerr << "Usage: " << argv[0] << " <socket> <motor_port>" << std::endl;
+		cerr << "Usage: " << argv[0] << " <socket> <motor_port>" << endl;
 		return 1;
 	}
-    cout << "Enough arguments present"<< std::endl;
+    cout << "Enough arguments present"<< endl;
     nh.initNode(argv[1]);
-	cout << "Initialised node"<< std::endl;
+	cout << "Initialised node"<< endl;
     // TODO: Check for valid nh and raise error if otherwise
     int motor_port = atoi(argv[2]);
     if(motor_port<1||motor_port>4)
     {
-		std::cerr << "Invalid motor port number. Must be 1, 2, 3 or 4." << std::endl;
+		cerr << "Invalid motor port number. Must be 1, 2, 3 or 4." << endl;
 		return 1;
 	}
-	std::string port (argv[2]);
+	string port (argv[2]);
 	name = "motor"+port;
     joint = motor(motor_port);
-	cout << "Got valid port number : " << motor_port << " name: "<< name << std::endl;
+	cout << "Got valid port number : " << motor_port << " name: "<< name << endl;
 
     if(joint.type()=="minitacho")
     	POWER_TO_NM = 0.08;
@@ -103,7 +92,7 @@ int main(int argc, char* argv[])
  	float eff[1];
  	ros::Publisher js_pub("joint_state", &js_msg);
  	nh.advertise(js_pub);
-	cout << "advertised on joint_state"<< std::endl;
+	cout << "advertised on joint_state"<< endl;
 	nh.subscribe(jc_sub);
 	
 	ros::Time current_time, last_time;
@@ -121,27 +110,27 @@ int main(int argc, char* argv[])
 		nh.spinOnce();               // check for incoming messages
 		current_time = ros::Time::now();
 		
-		// cout << "Got time " << std::endl;
+		// cout << "Got time " << endl;
 
 		js_msg.header.stamp = current_time;
 		js_msg.header.frame_id = "pi-alpha";
 		
-		// cout << "Stamped time " << std::endl;
+		// cout << "Stamped time " << endl;
 
 		pos[0] = joint.position()*deg2rad;
 		vel[0] = joint.pulses_per_second()*deg2rad;
 		eff[0] = joint.duty_cycle()*POWER_TO_NM;
-		// cout << "Got data" << std::endl;
+		// cout << "Got data" << endl;
 		js_msg.name = a;
 		js_msg.position = pos;
 		js_msg.velocity = vel;
 		js_msg.effort = eff;
-		// cout << "Constructed message" << std::endl;
+		// cout << "Constructed message" << endl;
 		js_pub.publish(&js_msg);
-		// cout << "Published msg" << std::endl;
+		// cout << "Published msg" << endl;
 		last_time = current_time;
 		sleep(1.0);
-		// cout << "Finished sleep " << std::endl;
+		// cout << "Finished sleep " << endl;
 
 	}
     return 0;

@@ -27,6 +27,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <map>
 #include <system_error>
 #include <dirent.h>
 #include <string.h>
@@ -53,7 +54,7 @@
 
 #define SYS_BUTTON SYS_ROOT "/devices/platform/ev3dev/button"
 #define SYS_SOUND  SYS_ROOT "/devices/platform/snd-legoev3/"
-#define SYS_POWER  SYS_ROOT "/class/power_supply/legoev3-battery/"
+#define SYS_POWER  SYS_ROOT "/class/power_supply/"
 
 //-----------------------------------------------------------------------------
 
@@ -139,21 +140,64 @@ void device::set_attr_string(const std::string &name, const std::string &value)
 
 //-----------------------------------------------------------------------------
 
-sensor::sensor(unsigned port_)
+std::string device::get_attr_line(const std::string &name) const
 {
-  init(port_, std::set<unsigned>());
+  using namespace std;
+  
+  if (_path.empty())
+    throw system_error(make_error_code(errc::function_not_supported), "no device connected");
+  
+  ifstream is((_path+name).c_str());
+  if (is.is_open())
+  {
+    string result;
+    getline(is, result);
+    return result;
+  }
+  
+  throw system_error(make_error_code(errc::no_such_device), _path+name);
 }
 
 //-----------------------------------------------------------------------------
 
-sensor::sensor(unsigned port_, const std::set<unsigned> &types_)
+const sensor::sensor_type sensor::ev3_touch       { "lego-ev3-touch" };
+const sensor::sensor_type sensor::ev3_color       { "ev3-uart-29" };
+const sensor::sensor_type sensor::ev3_ultrasonic  { "ev3-uart-30" };
+const sensor::sensor_type sensor::ev3_gyro        { "ev3-uart-32" };
+const sensor::sensor_type sensor::ev3_infrared    { "ev3-uart-33" };
+  
+const sensor::sensor_type sensor::nxt_touch       { "lego-nxt-touch" };
+const sensor::sensor_type sensor::nxt_light       { "lego-nxt-light" };
+const sensor::sensor_type sensor::nxt_sound       { "lego-nxt-sound" };
+const sensor::sensor_type sensor::nxt_ultrasonic  { "lego-nxt-ultrasonic" };
+const sensor::sensor_type sensor::nxt_i2c_sensor  { "nxt-i2c-sensor" };
+
+//-----------------------------------------------------------------------------
+
+sensor::sensor(port_type port_)
 {
-  init(port_, types_);
+  init(port_, std::set<sensor_type>(), std::map<std::string, std::string>());
 }
 
 //-----------------------------------------------------------------------------
 
-bool sensor::init(unsigned port_, const std::set<unsigned> &types_) noexcept
+sensor::sensor(port_type port_, const std::set<sensor_type> &types_)
+{
+  init(port_, types_, std::map<std::string, std::string>());
+}
+
+//-----------------------------------------------------------------------------
+
+sensor::sensor(port_type port_, const std::set<sensor_type> &types_,
+               const std::map<std::string, std::string> &attributes_)
+{
+  init(port_, types_, attributes_);
+}
+
+//-----------------------------------------------------------------------------
+
+bool sensor::init(port_type port_, const std::set<sensor_type> &types_,
+                  const std::map<std::string, std::string> &attributes_) noexcept
 {
   using namespace std;
   
@@ -170,54 +214,84 @@ bool sensor::init(unsigned port_, const std::set<unsigned> &types_) noexcept
       {
         try
         {
-          string strDir = strClassDir + dp->d_name;
-          ifstream is((strDir+"/type_id").c_str());
-          if (is.is_open())
+          _path = strClassDir + dp->d_name + '/';
+          
+          _port_name = get_attr_string("port_name");
+          if (port_.empty() || (_port_name == port_))
           {
-            int type = 0;
-            is >> type;
-            if (is.bad() || (!types_.empty() && (types_.find(type)==types_.cend())))
-              continue;
-            
-            is.close();
-            is.open((strDir+"/port_name").c_str());
-            char c;
-            int port = 0;
-            is >> c >> c >> port;
-            if (is.bad() || (port_ && (port != port_)))
-              continue;
-            
-            is.close();
-            is.open((strDir+"/num_values").c_str());
-            int nvalues = 0;
-            is >> nvalues;
-            is.close();
-            
-            _device_index = 0;
-            for (unsigned i=6; dp->d_name[i]!=0; ++i)
+            _type = get_attr_string("name");
+            if (types_.empty() || (types_.find(_type) != types_.cend()))
             {
-              _device_index *= 10;
-              _device_index += dp->d_name[i]-'0';
+              bool bMatch = true;
+              for (auto a : attributes_)
+              {
+                if (get_attr_string(a.first) != a.second)
+                {
+                  bMatch = false;
+                  break;
+                }
+              }
+              
+              if (bMatch)
+              {
+                _device_index = 0;
+                for (unsigned i=6; dp->d_name[i]!=0; ++i)
+                {
+                  _device_index *= 10;
+                  _device_index += dp->d_name[i]-'0';
+                }
+                
+                read_mode_values();
+              }
+              
+              return true;
             }
-            
-            _port_name = "in0"; _port_name[2] += port;
-            _port    = port;
-            _type    = type;
-            _nvalues = nvalues;
-            _path    = strDir + '/';
-            
-            read_modes();
-            
-            return true;
           }
         }
         catch (...) { }
+        
+        _path.clear();
+        _port_name.clear();
+        _type.clear();
       }
     }
+    
     closedir(dfd);
   }
+  else
+    cerr << "no msensor dir!" << endl;
   
   return false;
+}
+
+//-----------------------------------------------------------------------------
+
+const std::string &sensor::type_name() const
+{
+  if (_type.empty())
+  {
+    static const std::string s("<none>");
+    return s;
+  }
+  
+  static const std::map<sensor_type, const std::string> lookup_table {
+    { ev3_touch,       "EV3 touch" },
+    { ev3_color,       "EV3 color" },
+    { ev3_ultrasonic,  "EV3 ultrasonic" },
+    { ev3_gyro,        "EV3 gyro" },
+    { ev3_infrared,    "EV3 infrared" },
+    { nxt_touch,       "NXT touch" },
+    { nxt_light,       "NXT light" },
+    { nxt_sound,       "NXT sound" },
+    { nxt_ultrasonic,  "NXT ultrasonic" },
+    { nxt_i2c_sensor,  "I2C sensor" },
+  };
+  
+  auto s = lookup_table.find(_type);
+  if (s != lookup_table.end())
+    return s->second;
+  
+  return _type;
 }
 
 //-----------------------------------------------------------------------------
@@ -235,11 +309,15 @@ int sensor::value(unsigned index) const
 
 //-----------------------------------------------------------------------------
   
+float sensor::float_value(unsigned index) const
+{
+  return value(index) * _dp_scale;
+}
+
+//-----------------------------------------------------------------------------
+  
 const mode_set &sensor::modes() const
 {
-  if (_modes.empty())
-    const_cast<sensor*>(this)->read_modes();
-  
   return _modes;
 }
 
@@ -247,59 +325,45 @@ const mode_set &sensor::modes() const
   
 const mode_type &sensor::mode() const
 {
-  if (_mode.empty())
-    const_cast<sensor*>(this)->read_modes();
-  
   return _mode;
 }
 
 //-----------------------------------------------------------------------------
 
-void sensor::read_modes()
+void sensor::read_mode_values()
 {
   using namespace std;
-  
-  ifstream is((_path+"/modes").c_str());
-  if (is.is_open())
-  {
-    _mode = get_attr_string("mode");
-  }
-  else
-  {
-    _mode.clear();
-    is.open((_path+"/mode").c_str());
-  }
-  
+
+  _mode = get_attr_string("mode");
+
   _modes.clear();
-  
-  if (is.is_open())
-  {
-    string s;
-    getline(is, s);
+
+  string s = get_attr_line("modes");
+  size_t pos, last_pos = 0;
+  string m;
+  do {
+    pos = s.find(' ', last_pos);
     
-    size_t pos, last_pos = 0;
-    string m;
-    do {
-      pos = s.find(' ', last_pos);
-      
-      if (pos != string::npos)
-      {
-        m = s.substr(last_pos, pos-last_pos);
-        last_pos = pos+1;
-      }
-      else
-        m = s.substr(last_pos);
-      
-      if (!m.empty())
-      {
-        if (*m.begin()=='[')
-        {
-          _mode = m.substr(1, m.length()-2);
-          m = _mode;
-        }
-        _modes.insert(m);
-      }
-    } while (pos!=string::npos);
+    if (pos != string::npos)
+    {
+      m = s.substr(last_pos, pos-last_pos);
+      last_pos = pos+1;
+    }
+    else
+      m = s.substr(last_pos);
+    
+    if (!m.empty())
+    {
+      _modes.insert(m);
+    }
+  } while (pos!=string::npos);
+  
+  _nvalues = get_attr_int("num_values");
+  _dp = get_attr_int("dp");
+  _dp_scale = 1.f;
+  for (unsigned dp = _dp; dp; --dp)
+  {
+    _dp_scale /= 10.f;
   }
 }
 
@@ -310,82 +374,27 @@ void sensor::set_mode(const mode_type &mode_)
   if (mode_ != _mode)
   {
     set_attr_string("mode", mode_);
-    _mode.clear();
+    const_cast<sensor*>(this)->read_mode_values();
   }
 }
-
+    
 //-----------------------------------------------------------------------------
 
-const std::string &sensor::as_string(unsigned type)
+i2c_sensor::i2c_sensor(port_type port_) :
+  sensor(port_, { nxt_i2c_sensor })
 {
-  switch (type)
-  {
-  case nxt_touch:
-    {
-      static const std::string s("NXT touch");
-      return s;
-    }
-  case nxt_light:
-    {
-      static const std::string s("NXT light");
-      return s;
-    }
-  case nxt_sound:
-    {
-      static const std::string s("NXT sound");
-      return s;
-    }
-  case nxt_color:
-    {
-      static const std::string s("NXT color");
-      return s;
-    }
-  case nxt_ultrasonic:
-    {
-      static const std::string s("NXT ultrasonic");
-      return s;
-    }
-  case nxt_temperature:
-    {
-      static const std::string s("NXT temperature");
-      return s;
-    }
-  case ev3_touch:
-    {
-      static const std::string s("EV3 touch");
-      return s;
-    }
-  case ev3_color:
-    {
-      static const std::string s("EV3 color");
-      return s;
-    }
-  case ev3_ultrasonic:
-    {
-      static const std::string s("EV3 ultrasonic");
-      return s;
-    }
-  case ev3_gyro:
-    {
-      static const std::string s("EV3 gyro");
-      return s;
-    }
-  case ev3_infrared:
-    {
-      static const std::string s("EV3 infrared");
-      return s;
-    }
-  default:
-    break;
-  }
-
-  static const std::string s("<no string available>");
-  return s;
 }
 
 //-----------------------------------------------------------------------------
 
-touch_sensor::touch_sensor(unsigned port_) :
+i2c_sensor::i2c_sensor(port_type port_, address_type address_) :
+  sensor(port_, { nxt_i2c_sensor }, { { "address", address_ } } )
+{
+}
+
+//-----------------------------------------------------------------------------
+
+touch_sensor::touch_sensor(port_type port_) :
   sensor(port_, { ev3_touch })
 {
 }
@@ -396,7 +405,7 @@ const mode_type color_sensor::mode_reflect { "COL-REFLECT" };
 const mode_type color_sensor::mode_ambient { "COL-AMBIENT" };
 const mode_type color_sensor::mode_color   { "COL-COLOR"   };
 
-color_sensor::color_sensor(unsigned port_) :
+color_sensor::color_sensor(port_type port_) :
   sensor(port_, { ev3_color })
 {
 }
@@ -409,7 +418,7 @@ const mode_type ultrasonic_sensor::mode_listen    { "US-LISTEN"  };
 const mode_type ultrasonic_sensor::mode_single_cm { "US-SI-CM"   };
 const mode_type ultrasonic_sensor::mode_single_in { "US-SI-IN"   };
 
-ultrasonic_sensor::ultrasonic_sensor(unsigned port_) :
+ultrasonic_sensor::ultrasonic_sensor(port_type port_) :
   sensor(port_, { ev3_ultrasonic })
 {
 }
@@ -420,7 +429,7 @@ const mode_type gyro_sensor::mode_angle           { "GYRO-ANG"  };
 const mode_type gyro_sensor::mode_speed           { "GYRO-RATE" };
 const mode_type gyro_sensor::mode_angle_and_speed { "GYRO-G&A"  };
 
-gyro_sensor::gyro_sensor(unsigned port_) :
+gyro_sensor::gyro_sensor(port_type port_) :
   sensor(port_, { ev3_gyro })
 {
 }
@@ -431,7 +440,7 @@ const mode_type infrared_sensor::mode_proximity { "IR-PROX"   };
 const mode_type infrared_sensor::mode_ir_seeker { "IR-SEEK"   };
 const mode_type infrared_sensor::mode_ir_remote { "IR-REMOTE" };
 
-infrared_sensor::infrared_sensor(unsigned port_) :
+infrared_sensor::infrared_sensor(port_type port_) :
   sensor(port_, { ev3_infrared })
 {
 }
@@ -457,21 +466,21 @@ const mode_type motor::position_mode_relative { "relative" };
 
 //-----------------------------------------------------------------------------
 
-motor::motor(unsigned p)
+motor::motor(port_type p)
 {
   init(p, std::string());
 }
 
 //-----------------------------------------------------------------------------
 
-motor::motor(unsigned p, const motor_type &t)
+motor::motor(port_type p, const motor_type &t)
 {
   init(p, t);
 }
 
 //-----------------------------------------------------------------------------
 
-bool motor::init(unsigned port_, const motor_type &type_) noexcept
+bool motor::init(port_type port_, const motor_type &type_) noexcept
 {
   using namespace std;
   
@@ -490,41 +499,32 @@ bool motor::init(unsigned port_, const motor_type &type_) noexcept
         {
           _path = strClassDir + dp->d_name + '/';
           
-          std::string strPort = get_attr_string("port_name");
-          if (strPort.length()<4)
-            continue;
-          
-          _port = strPort[3]-'A'+1;
-          if ((_port < 1) || (_port > 4))
-            continue;
-          
-          if (port_ && (_port != port_))
-            continue;
-          
-          _device_index = 0;
-          for (unsigned i=11; dp->d_name[i]!=0; ++i)
+          _port_name = get_attr_string("port_name");
+          if (port_.empty() || (_port_name == port_))
           {
-            _device_index *= 10;
-            _device_index += dp->d_name[i]-'0';
+            _type = get_attr_string("type");
+            if (type_.empty() || (_type == type_))
+            {
+              _device_index = 0;
+              for (unsigned i=11; dp->d_name[i]!=0; ++i)
+              {
+                _device_index *= 10;
+                _device_index += dp->d_name[i]-'0';
+              }
+              
+              return true;
+            }
           }
-          
-          _port_name = strPort;
-          
-          _type = get_attr_string("type");
-          if (!type_.empty() && _type != type_)
-            continue;
-          
-          return true;
         }
         catch (...) { }
+        
+        _path.clear();
+        _port_name.clear();
+        _type.clear();
       }
     }
     closedir(dfd);
   }
-  
-  _port = 0;
-  _path.clear();
-  _type.clear();
   
   return false;
 }
@@ -797,42 +797,51 @@ void motor::set_speed_regulation_k(int value)
 
 //-----------------------------------------------------------------------------
 
-medium_motor::medium_motor(unsigned port_) : motor(port_, motor_medium)
+medium_motor::medium_motor(port_type port_) : motor(port_, motor_medium)
 {
 }
 
 //-----------------------------------------------------------------------------
 
-large_motor::large_motor(unsigned port_) : motor(port_, motor_large)
+large_motor::large_motor(port_type port_) : motor(port_, motor_large)
 {
 }
 
 //-----------------------------------------------------------------------------
 
-led::led(const std::string &name)
+led::led(std::string name)
 {
-  std::string p(SYS_ROOT "/class/leds/ev3:" + name);
+  std::string p(SYS_ROOT "/class/leds/" + name);
   
   DIR *dfd;
   if ((dfd = opendir(p.c_str())) != NULL)
   {
     _path = p + '/';
     closedir(dfd);
+    
+    _max_brightness = get_attr_int("max_brightness");
   }
 }
 
 //-----------------------------------------------------------------------------
 
-int led::level() const
+int led::brightness() const
 {
   return get_attr_int("brightness");
 }
 
 //-----------------------------------------------------------------------------
 
+void led::set_brightness(int value)
+{
+  set_attr_int("brightness", value);
+}
+    
+//-----------------------------------------------------------------------------
+
 void led::on()
 {
-  set_attr_int("brightness", 1);
+  set_attr_int("brightness", _max_brightness);
 }
 
 //-----------------------------------------------------------------------------
@@ -957,10 +966,10 @@ void led::set_trigger(const mode_type &trigger_)
 
 //-----------------------------------------------------------------------------
 
-led led::red_right   { "red:right"   };
-led led::red_left    { "red:left"    };
-led led::green_right { "green:right" };
-led led::green_left  { "green:left"  };
+led led::red_right   { "ev3:red:right"   };
+led led::red_left    { "ev3:red:left"    };
+led led::green_right { "ev3:green:right" };
+led led::green_left  { "ev3:green:left"  };
 
 //-----------------------------------------------------------------------------
 
@@ -970,6 +979,83 @@ void led::green_on () { green_right.on();  green_left.on();  }
 void led::green_off() { green_right.off(); green_left.off(); }
 void led::all_on   () { red_on();  green_on();  }
 void led::all_off  () { red_off(); green_off(); }
+
+//-----------------------------------------------------------------------------
+
+power_supply::power_supply(std::string name)
+{
+  if (name.empty())
+    name = "legoev3-battery";
+  
+  std::string p(SYS_POWER + name);
+  
+  DIR *dfd;
+  if ((dfd = opendir(p.c_str())) != NULL)
+  {
+    _path = p + '/';
+    closedir(dfd);
+  }
+}
+
+//-----------------------------------------------------------------------------
+
+int power_supply::current_now() const
+{
+  return get_attr_int("current_now");
+}
+
+//-----------------------------------------------------------------------------
+
+float power_supply::current_amps() const
+{
+  return get_attr_int("current_now") / 1000.f;
+}
+
+//-----------------------------------------------------------------------------
+
+int power_supply::current_max_design() const
+{
+  return get_attr_int("current_max_design");
+}
+
+//-----------------------------------------------------------------------------
+
+int power_supply::voltage_now() const
+{
+  return get_attr_int("voltage_now");
+}
+
+//-----------------------------------------------------------------------------
+
+float power_supply::voltage_volts() const
+{
+  return get_attr_int("voltage_now") / 1000000.f;
+}
+
+//-----------------------------------------------------------------------------
+
+int power_supply::voltage_max_design() const
+{
+  return get_attr_int("voltage_max_design");
+}
+
+//-----------------------------------------------------------------------------
+
+std::string power_supply::technology() const
+{
+  return get_attr_string("technology");
+}
+
+//-----------------------------------------------------------------------------
+
+std::string power_supply::type() const
+{
+  return get_attr_string("type");
+}
+
+//-----------------------------------------------------------------------------
+
+power_supply power_supply::battery { "" };
 
 //-----------------------------------------------------------------------------
 
@@ -1078,36 +1164,6 @@ void sound::set_volume(unsigned v)
   {
     os << v;
   }
-}
-
-//-----------------------------------------------------------------------------
-
-float battery::voltage()
-{
-  unsigned result = 0;
-  
-  std::ifstream is(SYS_POWER "/voltage_now");
-  if (is.is_open())
-  {
-    is >> result;
-  }
-  
-  return (result / 1000000.f);
-}
-
-//-----------------------------------------------------------------------------
-
-float battery::current()
-{
-  unsigned result = 0;
-  
-  std::ifstream is(SYS_POWER "/current_now");
-  if (is.is_open())
-  {
-    is >> result;
-  }
-  
-  return (result / 1000.f);
 }
 
 //-----------------------------------------------------------------------------

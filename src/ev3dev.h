@@ -28,6 +28,7 @@
 
 //-----------------------------------------------------------------------------
 
+#include <map>
 #include <set>
 #include <string>
 #include <functional>
@@ -38,24 +39,25 @@ namespace ev3dev {
 
 //-----------------------------------------------------------------------------
   
+typedef std::string         device_type;
+typedef std::string         port_type;
 typedef std::string         mode_type;
 typedef std::set<mode_type> mode_set;
+typedef std::string         address_type;
 
 //-----------------------------------------------------------------------------
 
-enum ePort {
-  INPUT_AUTO  = 0, //!< Automatic input selection
-  INPUT_1     = 1, //!< Sensor port 1
-  INPUT_2     = 2, //!< Sensor port 2
-  INPUT_3     = 3, //!< Sensor port 3
-  INPUT_4     = 4, //!< Sensor port 4
-  
-  OUTPUT_AUTO = 0, //!< Automatic output selection
-  OUTPUT_A    = 1, //!< Motor port A
-  OUTPUT_B    = 2, //!< Motor port B
-  OUTPUT_C    = 3, //!< Motor port C
-  OUTPUT_D    = 4, //!< Motor port D
-};
+const port_type INPUT_AUTO;          //!< Automatic input selection
+const port_type INPUT_1  { "in1" };  //!< Sensor port 1
+const port_type INPUT_2  { "in2" };  //!< Sensor port 2
+const port_type INPUT_3  { "in3" };  //!< Sensor port 3
+const port_type INPUT_4  { "in4" };  //!< Sensor port 4
+ 
+const port_type OUTPUT_AUTO;         //!< Automatic output selection
+const port_type OUTPUT_A { "outA" }; //!< Motor port A
+const port_type OUTPUT_B { "outB" }; //!< Motor port B
+const port_type OUTPUT_C { "outC" }; //!< Motor port C
+const port_type OUTPUT_D { "outD" }; //!< Motor port D
 
 //-----------------------------------------------------------------------------
 
@@ -68,6 +70,9 @@ protected:
   std::string get_attr_string(const std::string &name) const;
   void        set_attr_string(const std::string &name,
                               const std::string &value);
+
+  std::string get_attr_line  (const std::string &name) const;
+  
 protected:
   std::string _path;
 };
@@ -77,54 +82,66 @@ protected:
 class sensor : protected device
 {
 public:
-  sensor(unsigned port_ = INPUT_AUTO);
-  sensor(unsigned port_, const std::set<unsigned> &types_);
+  typedef device_type sensor_type;
   
-  inline bool              connected()    const { return (_port != 0); }
+  static const sensor_type ev3_touch;
+  static const sensor_type ev3_color;
+  static const sensor_type ev3_ultrasonic;
+  static const sensor_type ev3_gyro;
+  static const sensor_type ev3_infrared;
+  
+  static const sensor_type nxt_touch;
+  static const sensor_type nxt_light;
+  static const sensor_type nxt_sound;
+  static const sensor_type nxt_ultrasonic;
+  static const sensor_type nxt_i2c_sensor;
+  
+  sensor(port_type port_ = INPUT_AUTO);
+  sensor(port_type port_, const std::set<sensor_type> &types_);
+  
+  inline bool              connected()    const { return !_port_name.empty(); }
   inline unsigned          device_index() const { return _device_index; }
-  inline unsigned          port_id()      const { return _port; }
-  inline const std::string port_name()    const { return _port_name; }
-  inline unsigned          type()         const { return _type; }
-  inline unsigned          num_values()   const { return _nvalues; }
+  inline const std::string &port_name()   const { return _port_name; }
+  inline const sensor_type &type()        const { return _type; }
+         const std::string &type_name()   const;
+  inline unsigned           num_values()  const { return _nvalues; }
+  inline unsigned           dp()          const { return _dp; }
   
-  int value(unsigned index=0) const;
+  int   value(unsigned index=0) const;
+  float float_value(unsigned index=0) const;
   
   const mode_set  &modes() const;
   const mode_type &mode()  const;
   
   void set_mode(const mode_type&);
   
-  enum type
-  {
-    nxt_touch       = 1,
-    nxt_light       = 2,
-    nxt_sound       = 3,
-    nxt_color       = 4,
-    nxt_ultrasonic  = 5,
-    nxt_temperature = 6,
-    
-    ev3_touch       = 16,
-    ev3_color       = 29,
-    ev3_ultrasonic  = 30,
-    ev3_gyro        = 32,
-    ev3_infrared    = 33,
-  };
-
-  static const std::string &as_string(unsigned type);
-  
 protected:
-  bool init(unsigned port_, const std::set<unsigned> &types_) noexcept;
-  void read_modes();
+  sensor(port_type port_, const std::set<sensor_type> &types_,
+         const std::map<std::string, std::string> &attributes_);
+  
+  bool init(port_type port_, const std::set<sensor_type> &types_,
+            const std::map<std::string, std::string> &attributes_) noexcept;
+  void read_mode_values();
   
 protected:
   unsigned _device_index = 0;
-  unsigned _port = 0;
-  unsigned _type = 0;
   unsigned _nvalues = 0;
+  unsigned _dp = 0;
+  float    _dp_scale = 1.f;
   
-  std::string _port_name;
+  sensor_type _type;
+  port_type   _port_name;
   mode_set    _modes;
   mode_type   _mode;
+};
+
+//-----------------------------------------------------------------------------
+
+class i2c_sensor : public sensor
+{
+public:
+  i2c_sensor(port_type port_ = INPUT_AUTO);
+  i2c_sensor(port_type port_, address_type address_);
 };
 
 //-----------------------------------------------------------------------------
@@ -132,7 +149,7 @@ protected:
 class touch_sensor : public sensor
 {
 public:
-  touch_sensor(unsigned port_ = INPUT_AUTO);
+  touch_sensor(port_type port_ = INPUT_AUTO);
 };
 
 //-----------------------------------------------------------------------------
@@ -140,7 +157,7 @@ public:
 class color_sensor : public sensor
 {
 public:
-  color_sensor(unsigned port_ = INPUT_AUTO);
+  color_sensor(port_type port_ = INPUT_AUTO);
   
   static const mode_type mode_reflect;
   static const mode_type mode_ambient;
@@ -152,7 +169,7 @@ public:
 class ultrasonic_sensor : public sensor
 {
 public:
-  ultrasonic_sensor(unsigned port_ = INPUT_AUTO);
+  ultrasonic_sensor(port_type port_ = INPUT_AUTO);
 
   static const mode_type mode_dist_cm;
   static const mode_type mode_dist_in;
@@ -166,7 +183,7 @@ public:
 class gyro_sensor : public sensor
 {
 public:
-  gyro_sensor(unsigned port_ = INPUT_AUTO);
+  gyro_sensor(port_type port_ = INPUT_AUTO);
   
   static const mode_type mode_angle;
   static const mode_type mode_speed;
@@ -178,7 +195,7 @@ public:
 class infrared_sensor : public sensor
 {
 public:
-  infrared_sensor(unsigned port_ = INPUT_AUTO);
+  infrared_sensor(port_type port_ = INPUT_AUTO);
 
   static const mode_type mode_proximity;
   static const mode_type mode_ir_seeker;
@@ -190,10 +207,10 @@ public:
 class motor : protected device
 {
 public:
-  typedef std::string motor_type;
+  typedef device_type motor_type;
   
-  motor(unsigned port_ = OUTPUT_AUTO);
-  motor(unsigned port_, const motor_type&);
+  motor(port_type port_ = OUTPUT_AUTO);
+  motor(port_type port_, const motor_type&);
   
   static const motor_type motor_large;
   static const motor_type motor_medium;
@@ -212,9 +229,8 @@ public:
   static const mode_type position_mode_absolute;
   static const mode_type position_mode_relative;
   
-  inline bool              connected()    const { return (_port != 0); }
+  inline bool              connected()    const { return !_port_name.empty(); }
   inline unsigned          device_index() const { return _device_index; }
-  inline unsigned          port_id()      const { return _port; }
   inline const std::string port_name()    const { return _port_name; }
 
   motor_type type() const;
@@ -281,11 +297,10 @@ public:
   void set_speed_regulation_k(int);
   
 protected:
-  bool init(unsigned port_, const motor_type&) noexcept;
+  bool init(port_type port_, const motor_type&) noexcept;
   
 protected:
   unsigned    _device_index = 0;
-  unsigned    _port = 0;
   std::string _port_name;
   motor_type  _type;
 };
@@ -295,7 +310,7 @@ protected:
 class medium_motor : public motor
 {
 public:
-  medium_motor(unsigned port_ = OUTPUT_AUTO);
+  medium_motor(port_type port_ = OUTPUT_AUTO);
 };
 
 //-----------------------------------------------------------------------------
@@ -303,7 +318,7 @@ public:
 class large_motor : public motor
 {
 public:
-  large_motor(unsigned port_ = OUTPUT_AUTO);
+  large_motor(port_type port_ = OUTPUT_AUTO);
 };
 
 //-----------------------------------------------------------------------------
@@ -311,9 +326,15 @@ public:
 class led : protected device
 {
 public:
-  led(const std::string &name);
- 
-  int  level() const;
+  led(std::string name);
+
+  inline bool connected() const { return !_path.empty(); }
+  
+  int brightness() const;
+  void set_brightness(int);
+
+  inline int max_brightness() const { return _max_brightness; }
+  
   void on();
   void off();
   void flash(unsigned interval_ms);
@@ -335,6 +356,32 @@ public:
   static void green_off();
   static void all_on   ();
   static void all_off  ();
+  
+protected:
+  int _max_brightness = 0;
+};
+
+//-----------------------------------------------------------------------------
+
+class power_supply : protected device
+{
+public:
+  power_supply(std::string name);
+  
+  inline bool connected() const { return !_path.empty(); }
+  
+  int   current_now() const;
+  float current_amps() const;
+  int   current_max_design() const;
+
+  int voltage_now() const;
+  float voltage_volts() const;
+  int voltage_max_design() const;
+  
+  std::string technology() const;
+  std::string type() const;
+  
+  static power_supply battery;
 };
 
 //-----------------------------------------------------------------------------
@@ -379,15 +426,6 @@ public:
   
   static unsigned volume();
   static void set_volume(unsigned);
-};
-
-//-----------------------------------------------------------------------------
-
-class battery
-{
-public:
-  static float voltage();
-  static float current();
 };
 
 //-----------------------------------------------------------------------------

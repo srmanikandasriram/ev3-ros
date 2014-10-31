@@ -63,20 +63,22 @@ int main(int argc, char* argv[])
     cout << "Enough arguments present"<< endl;
     nh.initNode(argv[1]);
 
-    while(!nh.connected()) {nh.spinOnce();}
-	
 	cout << "Initialised node"<< endl;
     // TODO: Check for valid nh and raise error if otherwise
-    int motor_port = atoi(argv[2]);
-    if(motor_port<1||motor_port>4)
-    {
-		cerr << "Invalid motor port number. Must be 1, 2, 3 or 4." << endl;
-		return 1;
-	}
+    // int motor_port = atoi(argv[2]);
+ //    if(motor_port<1||motor_port>4)
+ //    {
+	// 	cerr << "Invalid motor port number. Must be 1, 2, 3 or 4." << endl;
+	// 	return 1;
+	// }
 	string port (argv[2]);
-	name = "motor"+port;
-    joint = motor(motor_port);
-	cout << "Got valid port number : " << motor_port << " name: "<< name << endl;
+	name = "motor_"+port;
+	// switch(motor_port){
+	// case 2:
+		joint = motor(port);
+	// }
+    
+	cout << "Got valid port number : " << port << " name: "<< name << endl;
 
     if(joint.type()=="minitacho")
     	POWER_TO_NM = 0.08;
@@ -107,6 +109,8 @@ int main(int argc, char* argv[])
 	js_msg.velocity_length = 1;
 	js_msg.effort_length = 1;
 
+    while(!nh.connected()) {nh.spinOnce();}
+    
 	// TODO: Test for frequency compliance and implementation of ros::Rate
 	while(1){
 
@@ -130,7 +134,7 @@ int main(int argc, char* argv[])
 		js_msg.effort = eff;
 		// cout << "Constructed message" << endl;
 		js_pub.publish(&js_msg);
-		// cout << "Published msg" << endl;
+		cout << "Published msg" << endl;
 		last_time = current_time;
 		sleep(1.0);
 		// cout << "Finished sleep " << endl;

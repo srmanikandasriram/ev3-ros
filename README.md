@@ -13,3 +13,4 @@ Setup
 - Correlate effort value to duty_cycle_set_point
 - Need EGlibC > 2.17 for running on EV3. Refer to [this](http://stackoverflow.com/questions/10863613/how-to-upgrade-glibc-from-version-2-13-to-2-15-on-debian) answer for how to do the same. In case you are using the `jessie` release of ev3dev, this step is not required
 - Increase `OUTPUT_SIZE` and `INPUT_SIZE` in `ros/node_handle.h` incase you face buffer overflow issues.
+- The current `ROSSerial_EmbeddedLinux` available as binary in repositories has a bug in serialization which causes all negative numbers to be converted to 0. This has been fixed in the trunk version. Hence, build `rosserial` from source code until an updated release is available.

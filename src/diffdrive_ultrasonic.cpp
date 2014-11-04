@@ -8,6 +8,7 @@
 */
 
 #include <ros.h>
+#include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/tf.h>
@@ -29,6 +30,7 @@ float R, L, speed;	// Update R and L from Parameter server
 const float deg2rad = M_PI/180.0;
 
 motor left_motor, right_motor;
+sensor s;
 
 float vx, wt, vl, vr;
 bool running = true;
@@ -86,17 +88,18 @@ void odometry()
 
 int main(int argc, char* argv[])
 {
-	if(argc<4)
+	if(argc<5)
 	{
-		cerr << "Usage: " << argv[0] << " <socket> <left_motor_port> <right_motor_port> <hz>" << endl;
+		cerr << "Usage: " << argv[0] << " <socket> <left_motor_port> <right_motor_port> <sensor_port> <hz>" << endl;
 		return 1;
 	}
 	int milliseconds = 100;
-	if(argc==5)
-    	milliseconds = 1000/atoi(argv[4]);
+	if(argc==6)
+    	milliseconds = 1000/atoi(argv[5]);
     // cout<<"milliseconds"<<milliseconds;
     string left_motor_port (argv[2]);
     string right_motor_port (argv[3]);
+    string sensor_port (argv[4]);
     // if(left_motor_port<1||left_motor_port>4||right_motor_port<1||right_motor_port>4||left_motor_port==right_motor_port)
     // {
 		// cerr << "Invalid motor port numbers. Must be 1, 2, 3 or 4 and distinct." << endl;
@@ -107,7 +110,13 @@ int main(int argc, char* argv[])
 
 	left_motor = motor(left_motor_port);
 	right_motor = motor(right_motor_port);
-	
+	s = sensor(sensor_port);
+    if(s.type()!="ev3-uart-30")
+    {
+		cerr << "Invalid sensor type. Must be EV3 ultrasonic. Given sensor is of type " << s.type() << endl;
+		return 1;
+	}    	
+
 	// TODO: Check if both were initialised
 
 	left_motor.reset();
@@ -122,6 +131,9 @@ int main(int argc, char* argv[])
 	right_motor.set_stop_mode("brake");
 	right_motor.set_regulation_mode("on");
 
+	// Set mode
+	string mode="US-DIST-CM";
+	s.set_mode(mode);
 
 	cout<<" Initialiased motors."<<endl;
 
@@ -131,7 +143,23 @@ int main(int argc, char* argv[])
 	tf::TransformBroadcaster odom_broadcaster;
 	nh.subscribe(cmd_sub);
 	cout<<" Initialiased Publisher and TransformBroadcaster."<<endl;
-	
+
+ 	sensor_msgs::LaserScan us_msg;
+ 	ros::Publisher us_pub("scan", &us_msg);
+ 	nh.advertise(us_pub);
+ 	int number = 10;
+ 	float ranges[10]={0.0}, intensities[10] = {0};
+ 	us_msg.header.frame_id = "laser_frame";
+	us_msg.angle_min = -0.08;
+    us_msg.angle_max = 0.08;
+    us_msg.angle_increment = 0.16/number;
+    us_msg.time_increment = 0.0001;
+    us_msg.scan_time = 0.0001;
+    us_msg.range_min = 0.01;
+    us_msg.range_max = 2.55;
+    us_msg.ranges_length = number;
+    us_msg.intensities_length = number;
+
 	ros::Time current_time, last_time;
 	current_time = ros::Time::now();
 	last_time = ros::Time::now();
@@ -182,7 +210,7 @@ int main(int argc, char* argv[])
 		//first, we'll publish the transform over tf
 		geometry_msgs::TransformStamped odom_trans;
 		odom_trans.header.stamp = current_time;
-		odom_trans.header.frame_id = "odom";
+		odom_trans.header.frame_id = "map";
 		odom_trans.child_frame_id = "base_link";
 
 		// cout<<" constructed header"<<endl;
@@ -201,7 +229,7 @@ int main(int argc, char* argv[])
 
 		//next, we'll publish the odometry message over ROS
 		odom_msg.header.stamp = current_time;
-		odom_msg.header.frame_id = "odom";
+		odom_msg.header.frame_id = "map";
 
 		//set the position
 		odom_msg.pose.pose.position.x = x;
@@ -220,7 +248,17 @@ int main(int argc, char* argv[])
 		odom_pub.publish(&odom_msg);
 
 		// cout<<" Published odometry"<<endl;
-		
+		us_msg.header.stamp = current_time;
+		float distance = s.value()/1000.0;
+	    for (int i = 0; i < number; ++i)
+	    {
+	    	ranges[i] = distance;
+	    	intensities[i] = 255;
+	    }
+	    us_msg.ranges = ranges;
+	    us_msg.intensities = intensities;
+	    us_pub.publish(&us_msg);
+
 		last_time = current_time;
 		this_thread::sleep_for(chrono::milliseconds(milliseconds));
 	}

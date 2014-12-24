@@ -8,6 +8,7 @@
 */
 
 #include <ros.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/LaserScan.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
@@ -23,9 +24,12 @@
 using namespace std;
 using namespace ev3dev;
 
+string ns = "/robot2/";
 ros::NodeHandle  nh;
 
 float x = 0.0, y = 0.0, t = 0.0;
+float x_est = 0.0, y_est = 0.0, t_est = 0.0;
+bool new_estimate = false;
 float R, L, speed;	// Update R and L from Parameter server
 const float deg2rad = M_PI/180.0;
 
@@ -34,6 +38,8 @@ sensor s;
 
 float vx, wt, vl, vr;
 bool running = true;
+
+int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
 
 void cmd_vel_cb(const geometry_msgs::Twist& cmd){
 	float vx, wt, vl, vr;
@@ -64,12 +70,28 @@ void cmd_vel_cb(const geometry_msgs::Twist& cmd){
 	cout << "received " << vx << "," << wt << "=>" << vl <<"," << vr << endl;
 }
 
-ros::Subscriber<geometry_msgs::Twist> cmd_sub("cmd_vel", cmd_vel_cb );
+void pose_cb(const geometry_msgs::PoseStamped& msg){
+	x_est = msg.pose.position.x;
+	y_est = msg.pose.position.y;
+	geometry_msgs::Quaternion q = msg.pose.orientation;
+	t_est = 2.0*atan2(q.z,q.w);
+	new_estimate = true;
+	cout << " Estimate: " << x_est << "," << y_est << "," << t_est <<endl;
+}
+
+ros::Subscriber<geometry_msgs::Twist> cmd_sub("/robot2/cmd_vel", cmd_vel_cb );
+ros::Subscriber<geometry_msgs::PoseStamped> pose_sub("pose_estimate_1" , pose_cb );
 
 void odometry()
 {
 	int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
 	while(running){
+		if(new_estimate){
+			x = x_est;
+			y = y_est;
+			t = t_est;
+			new_estimate = false;
+		}
 		encoder[0] = left_motor.position();
 		encoder[1] = right_motor.position();
 		dl = encoder[0]-prev_encoder[0];
@@ -83,6 +105,7 @@ void odometry()
 		vr = right_motor.pulses_per_second();
 		vx = (vl+vr)/2*speed;
 		wt = (vl-vr)/L*speed;
+		this_thread::sleep_for(chrono::milliseconds(100));
 	}
 }
 
@@ -138,23 +161,25 @@ int main(int argc, char* argv[])
 	cout<<" Initialiased motors."<<endl;
 
     nav_msgs::Odometry odom_msg;
-	ros::Publisher odom_pub("odom", &odom_msg);
+	ros::Publisher odom_pub("/robot2/odom", &odom_msg);
 	nh.advertise(odom_pub);
 	tf::TransformBroadcaster odom_broadcaster;
+	tf::TransformBroadcaster scan_broadcaster;
 	nh.subscribe(cmd_sub);
+	nh.subscribe(pose_sub);
 	cout<<" Initialiased Publisher and TransformBroadcaster."<<endl;
 
  	sensor_msgs::LaserScan us_msg;
- 	ros::Publisher us_pub("scan", &us_msg);
+ 	ros::Publisher us_pub("/robot2/scan", &us_msg);
  	nh.advertise(us_pub);
- 	int number = 10;
- 	float ranges[10]={0.0}, intensities[10] = {0};
+ 	int number = 100;
+ 	float ranges[100]={0.0}, intensities[100] = {255};
  	us_msg.header.frame_id = "laser_frame";
-	us_msg.angle_min = -0.08;
-    us_msg.angle_max = 0.08;
-    us_msg.angle_increment = 0.16/number;
-    us_msg.time_increment = 0.0001;
-    us_msg.scan_time = 0.0001;
+	us_msg.angle_min = -M_PI/40;
+    us_msg.angle_max = M_PI/40;
+    us_msg.angle_increment = M_PI/(20*number);
+    us_msg.time_increment = 0.0000;
+    us_msg.scan_time = 0.0000;
     us_msg.range_min = 0.01;
     us_msg.range_max = 2.55;
     us_msg.ranges_length = number;
@@ -170,16 +195,17 @@ int main(int argc, char* argv[])
     
     nh.initNode(argv[1]);
 	odom_broadcaster.init(nh);
+	scan_broadcaster.init(nh);
     while(!nh.connected()) {nh.spinOnce();}
 
 	cout<<" Initialiased node."<<endl;
 	
-	if (! nh.getParam("~R", &R)){ 
+	if (! nh.getParam((ns+"R").c_str(), &R)){ 
 	     R = 0.03;
 	     speed = R*deg2rad;
 	}
 
-	if (! nh.getParam("~L", &L)){ 
+	if (! nh.getParam((ns+"L").c_str(), &L)){ 
 	     L = 0.12;
 	}
 	
@@ -225,6 +251,25 @@ int main(int argc, char* argv[])
 		//send the transform
 		odom_broadcaster.sendTransform(odom_trans);
 
+		geometry_msgs::Quaternion scan_quat = tf::createQuaternionFromYaw(0);
+
+		geometry_msgs::TransformStamped scan_trans;
+		scan_trans.header.stamp = current_time;
+		scan_trans.header.frame_id = "base_link";
+		scan_trans.child_frame_id = "laser_frame";
+
+		// cout<<" constructed header"<<endl;
+
+		scan_trans.transform.translation.x = L/2.0;
+		scan_trans.transform.translation.y = 0;
+		scan_trans.transform.translation.z = 0;
+		scan_trans.transform.rotation = scan_quat;
+
+		// cout<<" Constructed full message"<<endl;
+
+		//send the transform
+		scan_broadcaster.sendTransform(scan_trans);
+
 		// cout<<" Sent transform"<<endl;
 
 		//next, we'll publish the odometry message over ROS
@@ -253,12 +298,13 @@ int main(int argc, char* argv[])
 	    for (int i = 0; i < number; ++i)
 	    {
 	    	ranges[i] = distance;
-	    	intensities[i] = 255;
+	    	// if(abs(i-number/2)<4)
+	    		// ranges[i] = distance;
 	    }
 	    us_msg.ranges = ranges;
 	    us_msg.intensities = intensities;
 	    us_pub.publish(&us_msg);
-
+		cout<<" sizeof "<<sizeof(us_msg)<<endl;
 		last_time = current_time;
 		this_thread::sleep_for(chrono::milliseconds(milliseconds));
 	}

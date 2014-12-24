@@ -8,6 +8,8 @@
 */
 
 #include <ros.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/tf.h>
@@ -25,6 +27,8 @@ using namespace ev3dev;
 ros::NodeHandle  nh;
 
 float x = 0.0, y = 0.0, t = 0.0;
+float x_est = 0.0, y_est = 0.0, t_est = 0.0;
+bool new_estimate = false;
 float R, L, speed;	// Update R and L from Parameter server
 const float deg2rad = M_PI/180.0;
 
@@ -32,6 +36,8 @@ motor left_motor, right_motor;
 
 float vx, wt, vl, vr;
 bool running = true;
+
+int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
 
 void cmd_vel_cb(const geometry_msgs::Twist& cmd){
 	float vx, wt, vl, vr;
@@ -62,11 +68,29 @@ void cmd_vel_cb(const geometry_msgs::Twist& cmd){
 	cout << "received " << vx << "," << wt << "=>" << vl <<"," << vr << endl;
 }
 
-ros::Subscriber<geometry_msgs::Twist> cmd_sub("cmd_vel", cmd_vel_cb );
+void odom_cb(const geometry_msgs::PoseStamped& msg){
+	x_est = msg.pose.position.x;
+	y_est = msg.pose.position.y;
+	geometry_msgs::Quaternion q = msg.pose.orientation;
+	t_est = asin(2*q.x*q.y+2*q.z*q.w);
+	cout << " Estimate: " << x_est << "," << y_est << "," << t_est <<endl;
+	new_estimate = true;
+}
 
+ros::Subscriber<geometry_msgs::Twist> cmd_sub("cmd_vel", cmd_vel_cb );
+ros::Subscriber<geometry_msgs::PoseStamped> odom_sub("pose_estimate_2", odom_cb );
+
+void updateEstimate(){
+	if(new_estimate){
+		x = x_est;
+		y = y_est;
+		t = t_est;
+		new_estimate = false;
+	}
+}
 void odometry()
 {
-	int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
+	// int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
 	while(running){
 		encoder[0] = left_motor.position();
 		encoder[1] = right_motor.position();
@@ -130,6 +154,7 @@ int main(int argc, char* argv[])
 	nh.advertise(odom_pub);
 	tf::TransformBroadcaster odom_broadcaster;
 	nh.subscribe(cmd_sub);
+	nh.subscribe(odom_sub);
 	cout<<" Initialiased Publisher and TransformBroadcaster."<<endl;
 	
 	ros::Time current_time, last_time;
@@ -162,15 +187,21 @@ int main(int argc, char* argv[])
 		nh.spinOnce();               // check for incoming messages
 		current_time = ros::Time::now();
 
-		// encoder[0] = left_motor.position();
-		// encoder[1] = right_motor.position();
-		// dl = encoder[0]-prev_encoder[0];
-		// dr = encoder[1]-prev_encoder[1];
-		// x += cos(t)*speed*(dl+dr)/2.0;
-		// y += sin(t)*speed*(dl+dr)/2.0;
-		// t += speed*(dl-dr)/L;
-		// prev_encoder[0] = encoder[0];
-		// prev_encoder[1] = encoder[1];
+		updateEstimate();
+
+		encoder[0] = left_motor.position();
+		encoder[1] = right_motor.position();
+		dl = encoder[0]-prev_encoder[0];
+		dr = encoder[1]-prev_encoder[1];
+		x += cos(t)*speed*(dl+dr)/2.0;
+		y += sin(t)*speed*(dl+dr)/2.0;
+		t += speed*(dl-dr)/L;
+		prev_encoder[0] = encoder[0];
+		prev_encoder[1] = encoder[1];
+		vl = left_motor.pulses_per_second();
+		vr = right_motor.pulses_per_second();
+		vx = (vl+vr)/2*speed;
+		wt = (vl-vr)/L*speed;
 	
 		// cout<<" Calculated: "<<x<<","<<y<<","<<t<<endl;
 

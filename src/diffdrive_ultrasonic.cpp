@@ -24,7 +24,7 @@
 using namespace std;
 using namespace ev3dev;
 
-string ns = "/robot2/";
+string ns = "/robot3/";
 ros::NodeHandle  nh;
 
 float x = 0.0, y = 0.0, t = 0.0;
@@ -40,6 +40,8 @@ float vx, wt, vl, vr;
 bool running = true;
 
 int encoder[2]={0,0}, prev_encoder[2] = {0,0}, dl, dr;
+
+const char map_name[4] = "map";
 
 void cmd_vel_cb(const geometry_msgs::Twist& cmd){
 	float vx, wt, vl, vr;
@@ -79,8 +81,8 @@ void pose_cb(const geometry_msgs::PoseStamped& msg){
 	cout << " Estimate: " << x_est << "," << y_est << "," << t_est <<endl;
 }
 
-ros::Subscriber<geometry_msgs::Twist> cmd_sub("/robot2/cmd_vel", cmd_vel_cb );
-ros::Subscriber<geometry_msgs::PoseStamped> pose_sub("pose_estimate_1" , pose_cb );
+ros::Subscriber<geometry_msgs::Twist> cmd_sub("/robot3/cmd_vel", cmd_vel_cb );
+ros::Subscriber<geometry_msgs::PoseStamped> pose_sub("/robot3/pose_estimate" , pose_cb );
 
 void odometry()
 {
@@ -161,7 +163,7 @@ int main(int argc, char* argv[])
 	cout<<" Initialiased motors."<<endl;
 
     nav_msgs::Odometry odom_msg;
-	ros::Publisher odom_pub("/robot2/odom", &odom_msg);
+	ros::Publisher odom_pub("/robot3/odom", &odom_msg);
 	nh.advertise(odom_pub);
 	tf::TransformBroadcaster odom_broadcaster;
 	tf::TransformBroadcaster scan_broadcaster;
@@ -170,11 +172,12 @@ int main(int argc, char* argv[])
 	cout<<" Initialiased Publisher and TransformBroadcaster."<<endl;
 
  	sensor_msgs::LaserScan us_msg;
- 	ros::Publisher us_pub("/robot2/scan", &us_msg);
+ 	ros::Publisher us_pub("/robot3/scan", &us_msg);
  	nh.advertise(us_pub);
  	int number = 100;
  	float ranges[100]={0.0}, intensities[100] = {255};
- 	us_msg.header.frame_id = "laser_frame";
+ 	const char laser_frame_name[20] = "/robot3/laser_frame";
+ 	us_msg.header.frame_id = laser_frame_name;
 	us_msg.angle_min = -M_PI/40;
     us_msg.angle_max = M_PI/40;
     us_msg.angle_increment = M_PI/(20*number);
@@ -186,8 +189,8 @@ int main(int argc, char* argv[])
     us_msg.intensities_length = number;
 
 	ros::Time current_time, last_time;
-	current_time = ros::Time::now();
-	last_time = ros::Time::now();
+	current_time = nh.now();
+	last_time = nh.now();
 
 	//ros::Rate r(1.0);
     
@@ -214,7 +217,7 @@ int main(int argc, char* argv[])
 	while(1){
 
 		nh.spinOnce();               // check for incoming messages
-		current_time = ros::Time::now();
+		current_time = nh.now();
 
 		// encoder[0] = left_motor.position();
 		// encoder[1] = right_motor.position();
@@ -236,8 +239,9 @@ int main(int argc, char* argv[])
 		//first, we'll publish the transform over tf
 		geometry_msgs::TransformStamped odom_trans;
 		odom_trans.header.stamp = current_time;
-		odom_trans.header.frame_id = "map";
-		odom_trans.child_frame_id = "base_link";
+		odom_trans.header.frame_id = map_name;
+		const char base_link_name[18] = "/robot3/base_link";
+		odom_trans.child_frame_id = base_link_name;
 
 		// cout<<" constructed header"<<endl;
 
@@ -255,8 +259,8 @@ int main(int argc, char* argv[])
 
 		geometry_msgs::TransformStamped scan_trans;
 		scan_trans.header.stamp = current_time;
-		scan_trans.header.frame_id = "base_link";
-		scan_trans.child_frame_id = "laser_frame";
+		scan_trans.header.frame_id = base_link_name;
+		scan_trans.child_frame_id = laser_frame_name;
 
 		// cout<<" constructed header"<<endl;
 
@@ -274,7 +278,7 @@ int main(int argc, char* argv[])
 
 		//next, we'll publish the odometry message over ROS
 		odom_msg.header.stamp = current_time;
-		odom_msg.header.frame_id = "map";
+		odom_msg.header.frame_id = map_name;
 
 		//set the position
 		odom_msg.pose.pose.position.x = x;
@@ -283,7 +287,7 @@ int main(int argc, char* argv[])
 		odom_msg.pose.pose.orientation = odom_quat;
 
 		//set the velocity
-		odom_msg.child_frame_id = "base_link";
+		odom_msg.child_frame_id = base_link_name;
 		odom_msg.twist.twist.linear.x = vx;
 		odom_msg.twist.twist.linear.y = 0;
 		odom_msg.twist.twist.angular.z = wt;

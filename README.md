@@ -20,4 +20,3 @@ Setup
 - Increase `OUTPUT_SIZE` and `INPUT_SIZE` in `ros/node_handle.h` incase you face buffer overflow issues.
 - The current `ROSSerial_EmbeddedLinux` available as binary in repositories has a bug in serialization which causes all negative numbers to be converted to 0. This has been fixed in the trunk version. Hence, build `rosserial` from source code until an updated release is available.
 - When constructing messages in EV3, ensure all variables are initialised. If a message contains an array, initilise it with zero if you don't want to use data in that.
-- Server forking does not work for ROSSerial Python client. Therefore only one node can run on EV3

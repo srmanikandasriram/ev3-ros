@@ -55,7 +55,7 @@ Note: Connecting the first time through dongle will only be cumbersome, this ste
 Note: make all compiles all the programs in the src file. If suppose you want to compile only a specific program, 
 run $ make <name of that program> 
 
-These commands will compile the programs written in the src folder and would create an executable for the program that can run in ev3 in * ~/<your catkin workspace>/src/ev3-ros>/bin *
+These commands will compile the programs written in the src folder and would create an executable for the program that can run in ev3 in  ~/<your catkin workspace>/src/ev3-ros>/bin 
 folder   
 ```
 

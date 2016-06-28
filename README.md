@@ -22,15 +22,14 @@ Setup
 
 3. Follow the instructions to setup the ssh connection between your workstation and the ev3 brick :
 
-		(i) In order to make the connection with a Wi-Fi dongle one has to first follow the instructions to get connected through USB [here]( 
+	(i) In order to make the connection with a Wi-Fi dongle one has to first follow the instructions to get connected through USB [here]( 
 		http://www.ev3dev.org/docs/tutorials/connecting-to-the-internet-via-usb/).
 
-		(ii) Now once the connection is made through the USB, go [here](http://www.ev3dev.org/docs/tutorials/setting-up-wifi-using-the-command-line/) to learn how to get connected through a Wi-Fi dongle.
+	(ii) Now once the connection is made through the USB, go [here](http://www.ev3dev.org/docs/tutorials/setting-up-wifi-using-the-command-line/) to learn how to get connected through a Wi-Fi dongle.
 
-```
+---
 Note: Connecting the first time through dongle will only be cumbersome, once step 3 is completed,connection will be made automatically upon booting the ev3 and our job is to only type the ssh command 
-		
-```
+---
 
 4. Now, follow instructions from [here](http://wiki.ros.org/rosserial_embeddedlinux/GenericInstall) 
    to setup the developement environment on the host computer.This will download two folders- `examples` and `ros_lib` in your working directory.`roslib` contains all the libraries required by the pre- existing ROS packages
@@ -52,13 +51,12 @@ Note: Connecting the first time through dongle will only be cumbersome, once ste
 
   `$ source ../setenv.sh ; make all`
 
-```
+---
 Note: make all compiles all the programs in the src file. If suppose you want to compile only a specific program, run $ make <name of that program> 
 
 These commands will compile the programs written in the src folder and would create an executable for the program that can run in ev3 in ` ~/<your catkin workspace>/<folder created in step 6>/bin `
 folder   
-
-```
+---
 
 10. Now run the ssh command to connect the host computer and the ev3 brick.
 

@@ -12,7 +12,7 @@ Note : This repositry is compatible with the ev3image file ev3dev-jessie-2015-12
 Pre-requisites:
 ===============
 + Host computer with ROS installed
-+ An lego mindstorm ev3 unit with a Wi-Fi dongle
++ A lego mindstorm ev3 unit with a Wi-Fi dongle
 
 Setup
 =====

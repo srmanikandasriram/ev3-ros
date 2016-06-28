@@ -28,7 +28,7 @@ Setup
 	(ii) Now once the connection is made through the USB, go [here](http://www.ev3dev.org/docs/tutorials/setting-up-wifi-using-the-command-line/) to learn how to get connected through a Wi-Fi dongle.
 
 ---
-Note: Connecting the first time through dongle will only be cumbersome, once step 3 is completed,connection will be made automatically upon booting the ev3 and our job is to only type the ssh command 
+Note: Connecting the first time through dongle will only be cumbersome, this step is completed,connection will be made automatically upon booting the ev3 and our job is to only type the ssh command 
 ---
 
 4. Now, follow instructions from [here](http://wiki.ros.org/rosserial_embeddedlinux/GenericInstall) 
@@ -38,7 +38,7 @@ Note: Connecting the first time through dongle will only be cumbersome, once ste
 5. Get CPP language bindings for ev3dev from [here](https://github.com/ev3dev/ev3dev-lang)
    and copy the files `ev3dev.h` and `ev3dev.cpp` from the repository into the `src` directory.
 
-6. Store this repository along with the two folders downloaded in step 4 in a one new folder in your catkin workspace.
+6. Store this repository along with the two directories downloaded earlier in a one new folder and name it `ev3-ros` in your catkin workspace's src directory.
 
 7. Replace `time.h` and `time.cpp` files from `ros_lib` directory with the ones provided here.
 
@@ -47,22 +47,23 @@ Note: Connecting the first time through dongle will only be cumbersome, once ste
 
 9. Now, run
 
-  `$ cd ~/<your catkin workspace>/<folder created in step 6>/src`
+  `$ cd ~/<your catkin workspace>/src/<ev3-ros>/src`
 
   `$ source ../setenv.sh ; make all`
 
 ---
 Note: make all compiles all the programs in the src file. If suppose you want to compile only a specific program, run $ make <name of that program> 
 
-These commands will compile the programs written in the src folder and would create an executable for the program that can run in ev3 in ` ~/<your catkin workspace>/<folder created in step 6>/bin `
+These commands will compile the programs written in the src folder and would create an executable for the program that can run in ev3 in ` ~/<your catkin workspace>/src/ev3-ros>/bin `
 folder   
+
 ---
 
 10. Now run the ssh command to connect the host computer and the ev3 brick.
 
 11. Now, to send the executable from the computer to the ev3, in your laptop's terminal run,
 
-   ` $ cd ~/<your catkin workspace>/<folder created in step 6>/bin`
+   ` $ cd ~/<your catkin workspace>/src/ev3-ros/bin`
 
    ` $ scp <executable name> robot@ev3dev.local:/<address of the directory in ev3 to store>`
 

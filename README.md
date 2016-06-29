@@ -73,7 +73,7 @@ folder
 + Once the executable is copied onto the ev3 go [here](http://wiki.ros.org/rosserial_embeddedlinux/Tutorials) to   
     understand rosserial in embeddedlinux.
 
-+. Now in the ROS workstation run, 
++ Now in the ROS workstation run, 
 	`$ roscore `
 
 	In another terminal, 

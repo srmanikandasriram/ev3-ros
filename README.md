@@ -90,6 +90,9 @@ folder
  
 + When constructing messages in EV3, ensure all variables are initialised. If a message contains an array,  
     initialise it with zero if you don't want to use data in that.
+
+
+
 ---
 
 Steps to be followed to use rosservices in ev3 
@@ -114,5 +117,8 @@ Steps to be followed to use rosservices in ev3
 
 + To call the services, a client code is not required. Instead run this command in the ros workstation,  
 	`$ rosservice call /<service_name> <arg1> <arg2>...<argn>`
+
+
+
 ---
 

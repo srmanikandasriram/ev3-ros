@@ -89,5 +89,30 @@ folder
     ROSSerial_EmbeddedLinux available as binary in repositories has a bug in serialization which causes all negative numbers to be converted to 0. This has been fixed in the trunk version. Hence, build rosserial from source code until an updated release is available.
  
 + When constructing messages in EV3, ensure all variables are initialised. If a message contains an array,  
-    initialise it with zero if you don't want to use data in that.  
+    initialise it with zero if you don't want to use data in that.
+---
+
+Steps to be followed to use rosservices in ev3 
+===
+
+
++ Look [here](http://wiki.ros.org/rosserial_embeddedlinux/Tutorials/Example%20service) for a simple rosservice code that runs in the ev3. 
+
++ The important factor in using services is the generation of headerfiles.
+ 
+	1. First create a ros package called "headers", refer [here](http://wiki.ros.org/ROS/Tutorials/CreatingPackage) for creating and building a ros package.
+
+	2. Follow the steps [here](http://wiki.ros.org/ROS/Tutorials/CreatingMsgAndSrv), for creating header files for ros services 
+
+	3. Now to obtain the header file generated, run `$ rosrun rosserial_mbed make_libraries.py <address of directory to  store> `
+
+	4. The above command would create a `roslib` directory which contains all the header files required by all the packages, in the mentioned address. Inside `roslib` will be a directory called headers and inside that will be the headerfile we created. 
+
+	5. Replace this `roslib` directory with the `roslib` in ~/catkin_ws/src/ev3-ros
+
++ Once the required header files are created, cross compile the services code and copy it onto the ev3, and run the  code. 
+
++ To call the services, a client code is not required. Instead run this command in the ros workstation,  
+	`$ rosservice call /<service_name> <arg1> <arg2>...<argn>`
+---
 

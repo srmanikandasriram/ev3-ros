@@ -118,7 +118,7 @@ Steps to be followed to use rosservices in ev3
 + To call the services, a client code is not required. Instead run this command in the ros workstation,  
 	`$ rosservice call /<service_name> <arg1> <arg2>...<argn>`
 
-
+`Note : The headerfiles required to run the ros services provided in this repository are stored in 'headers' directory in 'roslib' in this repository`
 
 ---
 

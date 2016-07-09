@@ -47,7 +47,7 @@ Note: Connecting the first time through dongle will only be cumbersome, this ste
 
 + Now, run
 
-  `$ cd ~/<your catkin workspace>/src/<ev3-ros>/src`
+  `$ cd ~/<your catkin workspace>/src/ev3-ros/src`
 
   `$ source ../setenv.sh ; make all`
 

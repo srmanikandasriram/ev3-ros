@@ -19,41 +19,43 @@ using namespace std;
 using namespace ev3dev;
 
 ros::NodeHandle  nh;
+char* ip;
 
 float deg2rad = M_PI/180.0;
 
 // Construct a unique name
-basic_string<char> name;
-sensor s;
+//basic_string<char> name;
+sensor s = sensor(INPUT_4);
 
 int main(int argc, char* argv[])
 {
 	if(argc<3)
 	{
-		std::cerr << "Usage: " << argv[0] << " <socket> <sensor_port>" << std::endl;
+		std::cerr << "Usage: " << argv[0] << " <IP> <sensor_port>" << std::endl;
 		return 1;
 	}
-    
-    nh.initNode(argv[1]);
+     ip =  (argv[1]);
+    nh.initNode(ip);
 
     while(!nh.connected()) {nh.spinOnce();}
 
     // TODO: Check for valid nh and raise error if otherwise
-    int sensor_port = atoi(argv[2]);
-    if(sensor_port<1||sensor_port>4)
-    {
-		std::cerr << "Invalid sensor port number. Must be 1, 2, 3 or 4." << std::endl;
-		return 1;
-	}
+    string sensor_port = (argv[2]);
+    //if(sensor_port<1||sensor_port>4)
+   // {
+	//	std::cerr << "Invalid sensor port number. Must be 1, 2, 3 or 4." << std::endl;
+	//	return 1;
+	//}
 
-	name = "sensor"+sensor_port;
+
+	//name = "sensor"+sensor_port;
     s = sensor(sensor_port);
 
-    if(s.as_string(s.type())!="EV3 ultrasonic")
-    {
-		std::cerr << "Invalid sensor type. Must be EV3 ultrasonic. Given sensor is of type " << s.as_string(s.type()) << std::endl;
-		return 1;
-	}    	
+   // if(s.as_string(s.type())!="EV3 ultrasonic")
+  //  {
+		//std::cerr << "Invalid sensor type. Must be EV3 ultrasonic. Given sensor is of type " << s.as_string(s.type()) << std::endl;
+		//return 1;
+	//}    	
 
 	// Set mode
 	string mode="US-DIST-CM";
@@ -70,17 +72,18 @@ int main(int argc, char* argv[])
  	nh.advertise(us_pub);
 	
 	ros::Time current_time, last_time;
-	current_time = ros::Time::now();
-	last_time = ros::Time::now();
+	current_time = nh.now();
+	last_time = nh.now();
 
 	// TODO: Test for frequency compliance and implementation of ros::Rate
 	while(1){
 
 		nh.spinOnce();               // check for incoming messages
-		current_time = ros::Time::now();
+		current_time = nh.now();
 
 		us_msg.header.stamp = current_time;
 		us_msg.range = s.value()/1000.0;
+		cout<<s.value()/1000.0<<endl;
 		us_pub.publish(&us_msg);
 
 		last_time = current_time;

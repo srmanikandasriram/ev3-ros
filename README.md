@@ -60,6 +60,11 @@ These commands will compile the programs written in the src folder and would cre
 the program that can
 run in ev3 in  ~/<your catkin workspace>/src/ev3-ros>/bin 
 folder   
+
+
+Important note : When setting up for the first time, make sure you create an empty folder named 'bin' in 
+~/catkin_ws/src/ev3-ros directory.
+
 ```
 
 + Now run the ssh command to connect the host computer and the ev3 brick.

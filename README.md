@@ -86,9 +86,11 @@ Important note : When setting up for the first time, make sure you create an emp
 
 + In the ev3 ssh terminal, 
 
-	`$ cd <wherever you stored the executable file in step 10>`
+	`$ cd ~/catkin_ws/src/ev3-ros/bin`
 
 	`$ ./<name of executable>`
+	
+~/catkin_ws/src/ev3-ros/bin is the place where the cross compiled executablle is instructed to be created at, in the Makefile
 
 + Increase `OUTPUT_SIZE` and `INPUT_SIZE` in ros/node_handle.h incase you face buffer overflow issue. The current  
     ROSSerial_EmbeddedLinux available as binary in repositories has a bug in serialization which causes all negative numbers to be converted to 0. This has been fixed in the trunk version. Hence, build rosserial from source code until an updated release is available.
